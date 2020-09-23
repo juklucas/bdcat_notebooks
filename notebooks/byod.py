@@ -361,46 +361,51 @@ with callysto.Cell("markdown"):
     Note that the row for `NWD2` is missing from the combined table since it was not present in `diabetic_table`.
     """
 
-################################################ TESTS ################################################ noqa    
-BLANK_CELL_VALUE = f"{uuid4()}" 
-delete_table("test_cram_crai_table")    
-listing = list()    
-for i in range(5):  
-    listing.append(f"gs://some-bucket/some-pfx/sample_id_{i}.cram") 
-    listing.append(f"gs://some-bucket/some-pfx/sample_id_{i}.crai") 
-for i in range(5, 8):   
-    listing.append(f"gs://some-bucket/some-pfx/sample_id_{i}.cram") 
-    listing.append(f"gs://some-bucket/some-pfx/sample_id_{i}.cram.crai")    
-create_cram_crai_table("test_cram_crai_table", listing) 
-cram_crai_keyed_rows = get_keyed_rows("test_cram_crai_table", "sample") 
-for i in range(5):  
-    assert cram_crai_keyed_rows[f'sample_id_{i}'] == dict(cram=f"gs://some-bucket/some-pfx/sample_id_{i}.cram", 
-                                                          crai=f"gs://some-bucket/some-pfx/sample_id_{i}.crai") 
-for i in range(5, 8):   
-    assert cram_crai_keyed_rows[f'sample_id_{i}'] == dict(cram=f"gs://some-bucket/some-pfx/sample_id_{i}.cram", 
-                                                          crai=f"gs://some-bucket/some-pfx/sample_id_{i}.cram.crai")    
-delete_table("test_metadata_table_a")   
-test_metadata_table_a_columns = dict(sample=["sample_id_1", "sample_id_2", "sample_id_3", "sample_id_4"],   
-                                     firstname=["a", "b", "c", "d"],    
-                                     birthday=["e", "f", "g", "h"]) 
-upload_columns("test_metadata_table_a", test_metadata_table_a_columns)  
-delete_table("test_metadata_table_b")   
-test_metadata_table_b_columns = dict(sample=["sample_id_1", "sample_id_2", "sample_id_3", "sample_id_5"],   
-                                     alpha=["1", "2", "3", "4"],    
-                                     beta=["5", "6", "7", "8"]) 
-upload_columns("test_metadata_table_b", test_metadata_table_b_columns)  
-delete_table("test_joined_table")   
-join_data_tables("test_joined_table", ["test_cram_crai_table", "test_metadata_table_a", "test_metadata_table_b"], "sample") 
-keyed_rows = get_keyed_rows("test_joined_table", "sample")  
-test_metadata_a_keyed_rows = get_keyed_rows("test_metadata_table_a", "sample")  
-test_metadata_b_keyed_rows = get_keyed_rows("test_metadata_table_b", "sample")  
-assert set(keyed_rows.keys()) == {f"sample_id_{i}" for i in range(8)}   
-for i in range(8):  
-    sample = f"sample_id_{i}"   
-    expected_row = dict(cram=cram_crai_keyed_rows[sample]['cram'],  
-                        crai=cram_crai_keyed_rows[sample]['crai'],  
-                        firstname=test_metadata_a_keyed_rows.get(sample, dict()).get('firstname', BLANK_CELL_VALUE),    
-                        birthday=test_metadata_a_keyed_rows.get(sample, dict()).get('birthday', BLANK_CELL_VALUE),  
-                        alpha=test_metadata_b_keyed_rows.get(sample, dict()).get('alpha', BLANK_CELL_VALUE),    
-                        beta=test_metadata_b_keyed_rows.get(sample, dict()).get('beta', BLANK_CELL_VALUE))  
+################################################ TESTS ################################################ noqa
+BLANK_CELL_VALUE = f"{uuid4()}"
+
+delete_table("test_cram_crai_table")
+listing = list()
+for i in range(5):
+    listing.append(f"gs://some-bucket/some-pfx/sample_id_{i}.cram")
+    listing.append(f"gs://some-bucket/some-pfx/sample_id_{i}.crai")
+for i in range(5, 8):
+    listing.append(f"gs://some-bucket/some-pfx/sample_id_{i}.cram")
+    listing.append(f"gs://some-bucket/some-pfx/sample_id_{i}.cram.crai")
+create_cram_crai_table("test_cram_crai_table", listing)
+cram_crai_keyed_rows = get_keyed_rows("test_cram_crai_table", "sample")
+for i in range(5):
+    assert cram_crai_keyed_rows[f'sample_id_{i}'] == dict(cram=f"gs://some-bucket/some-pfx/sample_id_{i}.cram",
+                                                          crai=f"gs://some-bucket/some-pfx/sample_id_{i}.crai")
+for i in range(5, 8):
+    assert cram_crai_keyed_rows[f'sample_id_{i}'] == dict(cram=f"gs://some-bucket/some-pfx/sample_id_{i}.cram",
+                                                          crai=f"gs://some-bucket/some-pfx/sample_id_{i}.cram.crai")
+
+delete_table("test_metadata_table_a")
+test_metadata_table_a_columns = dict(sample=["sample_id_1", "sample_id_2", "sample_id_3", "sample_id_4"],
+                                     firstname=["a", "b", "c", "d"],
+                                     birthday=["e", "f", "g", "h"])
+upload_columns("test_metadata_table_a", test_metadata_table_a_columns)
+
+delete_table("test_metadata_table_b")
+test_metadata_table_b_columns = dict(sample=["sample_id_1", "sample_id_2", "sample_id_3", "sample_id_5"],
+                                     alpha=["1", "2", "3", "4"],
+                                     beta=["5", "6", "7", "8"])
+upload_columns("test_metadata_table_b", test_metadata_table_b_columns)
+
+delete_table("test_joined_table")
+join_data_tables("test_joined_table", ["test_cram_crai_table", "test_metadata_table_a", "test_metadata_table_b"], "sample")
+keyed_rows = get_keyed_rows("test_joined_table", "sample")
+test_metadata_a_keyed_rows = get_keyed_rows("test_metadata_table_a", "sample")
+test_metadata_b_keyed_rows = get_keyed_rows("test_metadata_table_b", "sample")
+assert set(keyed_rows.keys()) == {f"sample_id_{i}" for i in range(8)}
+
+for i in range(8):
+    sample = f"sample_id_{i}"
+    expected_row = dict(cram=cram_crai_keyed_rows[sample]['cram'],
+                        crai=cram_crai_keyed_rows[sample]['crai'],
+                        firstname=test_metadata_a_keyed_rows.get(sample, dict()).get('firstname', BLANK_CELL_VALUE),
+                        birthday=test_metadata_a_keyed_rows.get(sample, dict()).get('birthday', BLANK_CELL_VALUE),
+                        alpha=test_metadata_b_keyed_rows.get(sample, dict()).get('alpha', BLANK_CELL_VALUE),
+                        beta=test_metadata_b_keyed_rows.get(sample, dict()).get('beta', BLANK_CELL_VALUE))
     assert expected_row == keyed_rows[sample]
