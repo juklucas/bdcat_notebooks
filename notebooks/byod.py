@@ -54,9 +54,9 @@ with callysto.Cell("markdown"):
     """
 
 with callysto.Cell("python"):
-    #install necessary libraries
-    get_ipython().run_line_magic('pip', 'install --upgrade --no-cache-dir terra-notebook-utils')
-    get_ipython().run_line_magic('pip', 'install --upgrade --no-cache-dir gs-chunked-io')
+    #pip install --upgrade --no-cache-dir terra-notebook-utils
+    #pip install --upgrade --no-cache-dir gs-chunked-io
+    pass
 
 with callysto.Cell("markdown"):
     """
@@ -74,8 +74,6 @@ with callysto.Cell("python"):
 
     google_project = os.environ['GOOGLE_PROJECT']
     workspace = os.environ['WORKSPACE_NAME']
-    bucket_clipped = os.environ["WORKSPACE_BUCKET"][len("gs://"):]
-    storage_client = google.cloud.storage.Client()
 
 with callysto.Cell("markdown"):
     """
@@ -96,29 +94,29 @@ with callysto.Cell("python"):
         upload_data_table(tsv_data)
 
     def create_cram_crai_table(table: str, listing: Iterable[str]):
-    crams = dict()
-    crais = dict()
-    for key in listing:
-        _, filename = key.rsplit("/", 1)
+        crams = dict()
+        crais = dict()
+        for key in listing:
+            _, filename = key.rsplit("/", 1)
 
-        parts = filename.split(".")
-        if 3 == len(parts):  # foo.cram.crai branch
-            sample, _, ext = parts
-        elif 2 == len(parts):  # "foo.cram" or "foo.crai" branch
-            sample, ext = parts
-        else:
-            raise ValueError(f"Unable to parse '{filename}'")
+            parts = filename.split(".")
+            if 3 == len(parts):  # foo.cram.crai branch
+                sample, _, ext = parts
+            elif 2 == len(parts):  # "foo.cram" or "foo.crai" branch
+                sample, ext = parts
+            else:
+                raise ValueError(f"Unable to parse '{filename}'")
 
-        if "cram" == ext:
-            crams[sample] = key
-        elif "crai" == ext:
-            crais[sample] = key
-        else:
-            continue
-    samples = sorted(crams.keys())
-    upload_columns(table, dict(sample=samples,
-                               cram=[crams[s] for s in samples],
-                               crai=[crais[s] for s in samples]))
+            if "cram" == ext:
+                crams[sample] = key
+            elif "crai" == ext:
+                crais[sample] = key
+            else:
+                continue
+        samples = sorted(crams.keys())
+        upload_columns(table, dict(sample=samples,
+                                   cram=[crams[s] for s in samples],
+                                   crai=[crais[s] for s in samples]))
 
 with callysto.Cell("markdown"):
     """
@@ -129,7 +127,6 @@ with callysto.Cell("markdown"):
     below.
 
     ### Find the path to this workspace bucket
-    
 
     Using the os package, you can print your workspace bucket path.
     """
@@ -142,9 +139,9 @@ with callysto.Cell("markdown"):
     """
     ### Add a prefix to your bucket path to organize your data
     In this example, we add the prefix 'test-crai-cram'. In the terminal of your computer, you will call something like:
-    
+
     `gsutil cp /Users/my-cool-username/Documents/Example.cram gs://your_bucket_info/my-crams/`
-    
+
     We will be calling what comes after your bucket info, here represented as `my-crams`, as your sudirectory.
 
     ## Preview the data in your workspace bucket
@@ -152,7 +149,8 @@ with callysto.Cell("markdown"):
     """
 
 with callysto.Cell("python"):
-    get_ipython().system('gsutil ls {bucket}')
+    #gsutil ls {bucket}
+    pass
 
 with callysto.Cell("markdown"):
     """
@@ -197,7 +195,7 @@ with callysto.Cell("python"):
 with callysto.Cell("markdown"):
     """
     Now, go check the data section of your workspace and you should a data table with the name you have given it, and that table should act as a directory of your files.
-    
+
     If you set the name of your table to a table that already exists, the old table will not be overwritten, but the new table won't be created either. Terra tables cannot be updated, they must be deleted and remade.
     Note: If you get a FireCloudServerError that reads "Duplicated entities are not allowed in TSV", this may be because you ran the code more than once without deleting `final.tsv` first. If you don't delete that file before re-running the notebook, Firecloud will consider your second upload to be a duplicate and block it.
 
@@ -206,38 +204,38 @@ with callysto.Cell("markdown"):
 with callysto.Cell("markdown"):
     """
     # Merge data tables across sample ids
-    
+
     Data tables can be joined across any column of shared values. For instance, the following tables can be joined with
     the `sample_id` column:
-    
+
     | sample_id | cram       | crai      |
     | --------- | ---------  | --------- |
     | NWD1      | NWD1.cram  | NWD1.crai |
     | NWD2      | NWD2.cram  | NWD2.crai |
     | NWD3      | NWD3.cram  | NWD3.crai |
-    
+
     | sample_id | first_name | last_name |
     | --------- | ---------  | --------- |
     | NWD1      | Bob        | Frank     |
     | NWD2      | Sue        | Lee       |
     | NWD3      | Adrian     | Zap       |
-    
+
     | sample_id | Diabetic   |
     | --------- | ---------  |
     | NWD1      | No         |
     | NWD3      | Yes        |
-    
+
     The code snippet
     ```
     join_data_tables("joined_table_name", ["cram_crai_table", "name_table", "diabetic_table"], "sample_id")
     ```
     produces the combined table
-    
+
     | sample_id | cram       | crai      | first_name | last_name | Diabetic   |
     | --------- | ---------  | --------- | ---------  | --------- | ---------  |
     | NWD1      | NWD1.cram  | NWD1.crai | Bob        | Frank     | No         |
     | NWD3      | NWD3.cram  | NWD3.crai | Adrian     | Zap       | Yes        |
-    
+
     Note that the row for `NWD2` is missing from the combined table since it was not present in `diabetic_table`.
     """
 
