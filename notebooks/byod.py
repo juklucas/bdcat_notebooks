@@ -66,9 +66,6 @@ with callysto.Cell("markdown"):
 with callysto.Cell("python"):
     import io
     import os
-    import google.cloud.storage
-    import pandas as pd
-    import firecloud.api as fapi
     from uuid import uuid4
     from firecloud import fiss
     from collections import defaultdict
@@ -98,44 +95,30 @@ with callysto.Cell("python"):
             tsv_data += os.linesep + "\t".join([f"{i}", *[row[c] for c in columns]])
         upload_data_table(tsv_data)
 
-    def create_cram_crai_table_pt(subdir: str):
-        listOfRows = []
-        PARENT_FILETYPE = "cram"
-        CHILD_FILETYPE = "crai"
-        
-        # For item in Google Storage Bucket...
-        for blob in storage_client.list_blobs(bucket_clipped, prefix=subdir):
-            
-            #If the item ends with the parent filetype (CRAM in this case)
-            if blob.name.endswith(PARENT_FILETYPE):
-                
-                # Remove ".cram" extension and search for the basename (ie NWD2920.cram --> NWD2920)
-                basename = blob.name[:-len(f'.{PARENT_FILETYPE}')]
-                
-                # For item containing the basename in Google Storage Bucket...
-                for basename_blob in storage_client.list_blobs(bucket_clipped, prefix=basename):
-                    
-                    # If it ends with the child extension (in this case, CRAI)...
-                    if basename_blob.name.endswith(CHILD_FILETYPE):
-                        
-                        # Format the table's four cells
-                        parent_filename = blob.name.split('/')[-1]
-                        sample_id = parent_filename[:-5]
-                        parent_location = "gs://"+f'{bucket_clipped}/{blob.name}'
-                        child_location  = "gs://"+f'{bucket_clipped}/{basename_blob.name}'
-                        
-                        # Make a list representing a row (with four cells), and add that to the table list
-                        table_row = ([sample_id, parent_location, child_location])
-                        listOfRows.append(table_row)
-                        
-                    # If no CRAI is found, the CRAM will not be added at all
-                    
-        # Once all items have been gone through, add to a pandas dataframe
-        dfCramsCrais = pd.DataFrame(listOfRows, 
-                                    columns=['sample'+'ID', 
-                                             'cram'+'Location', 
-                                             'crai'+'Location'])
-        return dfCramsCrais
+    def create_cram_crai_table(table: str, listing: Iterable[str]):
+    crams = dict()
+    crais = dict()
+    for key in listing:
+        _, filename = key.rsplit("/", 1)
+
+        parts = filename.split(".")
+        if 3 == len(parts):  # foo.cram.crai branch
+            sample, _, ext = parts
+        elif 2 == len(parts):  # "foo.cram" or "foo.crai" branch
+            sample, ext = parts
+        else:
+            raise ValueError(f"Unable to parse '{filename}'")
+
+        if "cram" == ext:
+            crams[sample] = key
+        elif "crai" == ext:
+            crais[sample] = key
+        else:
+            continue
+    samples = sorted(crams.keys())
+    upload_columns(table, dict(sample=samples,
+                               cram=[crams[s] for s in samples],
+                               crai=[crais[s] for s in samples]))
 
 with callysto.Cell("markdown"):
     """
