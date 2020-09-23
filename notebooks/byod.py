@@ -98,69 +98,6 @@ with callysto.Cell("python"):
             tsv_data += os.linesep + "\t".join([f"{i}", *[row[c] for c in columns]])
         upload_data_table(tsv_data)
 
-    def upload_columns(table: str, columns: Dict[str, List[Any]]):
-        column_headers = sorted(columns.keys())
-        number_of_rows = len(columns[set(columns.keys()).pop()])
-        tsv_data = "\t".join([f"{table}_id", *column_headers])
-        for i in range(number_of_rows):
-            tsv_data += os.linesep + "\t".join([f"{i}", *[columns[h][i] for h in column_headers]])
-        upload_data_table(tsv_data)
-
-    def iter_ents(table: str):
-        resp = fiss.fapi.get_entities(google_project, workspace, table)
-        resp.raise_for_status()
-        for item in resp.json():
-            yield item
-
-    def iter_rows(table: str):
-        for item in iter_ents(table):
-            yield item['attributes']
-
-    def get_columns(table: str) -> Dict[str, List[Any]]:
-        columns = defaultdict(list)
-        for row in iter_rows(table):
-            for key, val in row.items():
-                columns[key].append(val)
-        return dict(columns)
-
-    def delete_table(table: str):
-        rows_to_delete = [dict(entityType=e['entityType'], entityName=e['name'])
-                          for e in iter_ents(table)]
-        resp = fiss.fapi.delete_entities(google_project, workspace, rows_to_delete)
-        resp.raise_for_status()
-
-    def get_keyed_rows(table_name: str, key_column: str) -> Dict[str, Dict[str, Any]]:
-        keyed_rows = dict()
-        for row in iter_rows(table_name):
-            key = row[key_column]
-            assert key not in keyed_rows
-            keyed_rows[key] = row
-            del keyed_rows[key][key_column]
-        return keyed_rows
-
-    def keyed_row_columns(keyed_rows: Dict[str, Any]) -> Set[str]:
-        if keyed_rows:
-            random_key = set(keyed_rows.keys()).pop()
-            return set(keyed_rows[random_key].keys())
-        else:
-            return set()
-
-    def join_keyed_rows(keyed_rows_a: Dict[str, Any], keyed_rows_b: Dict[str, Any]) -> Dict[str, Any]:
-        a_columns = keyed_row_columns(keyed_rows_a)
-        b_columns = keyed_row_columns(keyed_rows_b)
-        assert not a_columns.intersection(b_columns), "Keyed rows to join may not share columns"
-        common_keys = set(keyed_rows_a.keys()).union(set(keyed_rows_b.keys()))
-        return {k: dict(**keyed_rows_a.get(k, {c: BLANK_CELL_VALUE for c in a_columns}),
-                        **keyed_rows_b.get(k, {c: BLANK_CELL_VALUE for c in b_columns}))
-                for k in common_keys}
-
-    def join_data_tables(new_table: str, tables_to_join: list, join_column: str):
-        keyed_rows = get_keyed_rows(tables_to_join[0], join_column)
-        for table_name in tables_to_join[1:]:
-            keyed_rows = join_keyed_rows(keyed_rows, get_keyed_rows(table_name, join_column))
-        upload_rows(new_table, [{join_column: k, **row} for k, row in keyed_rows.items()])
-
-
     def create_cram_crai_table_pt(subdir: str):
         listOfRows = []
         PARENT_FILETYPE = "cram"
@@ -360,6 +297,75 @@ with callysto.Cell("markdown"):
     
     Note that the row for `NWD2` is missing from the combined table since it was not present in `diabetic_table`.
     """
+
+with callysto.Cell("markdown"):
+    """
+    # Additional functions
+    To aid in the creation of your own data tables, we have provided some more functions for you to use and adapt.
+    """
+
+with callysto.Cell("python"):
+    def upload_columns(table: str, columns: Dict[str, List[Any]]):
+        column_headers = sorted(columns.keys())
+        number_of_rows = len(columns[set(columns.keys()).pop()])
+        tsv_data = "\t".join([f"{table}_id", *column_headers])
+        for i in range(number_of_rows):
+            tsv_data += os.linesep + "\t".join([f"{i}", *[columns[h][i] for h in column_headers]])
+        upload_data_table(tsv_data)
+
+    def iter_ents(table: str):
+        resp = fiss.fapi.get_entities(google_project, workspace, table)
+        resp.raise_for_status()
+        for item in resp.json():
+            yield item
+
+    def iter_rows(table: str):
+        for item in iter_ents(table):
+            yield item['attributes']
+
+    def get_columns(table: str) -> Dict[str, List[Any]]:
+        columns = defaultdict(list)
+        for row in iter_rows(table):
+            for key, val in row.items():
+                columns[key].append(val)
+        return dict(columns)
+
+    def delete_table(table: str):
+        rows_to_delete = [dict(entityType=e['entityType'], entityName=e['name'])
+                          for e in iter_ents(table)]
+        resp = fiss.fapi.delete_entities(google_project, workspace, rows_to_delete)
+        resp.raise_for_status()
+
+    def get_keyed_rows(table_name: str, key_column: str) -> Dict[str, Dict[str, Any]]:
+        keyed_rows = dict()
+        for row in iter_rows(table_name):
+            key = row[key_column]
+            assert key not in keyed_rows
+            keyed_rows[key] = row
+            del keyed_rows[key][key_column]
+        return keyed_rows
+
+    def keyed_row_columns(keyed_rows: Dict[str, Any]) -> Set[str]:
+        if keyed_rows:
+            random_key = set(keyed_rows.keys()).pop()
+            return set(keyed_rows[random_key].keys())
+        else:
+            return set()
+
+    def join_keyed_rows(keyed_rows_a: Dict[str, Any], keyed_rows_b: Dict[str, Any]) -> Dict[str, Any]:
+        a_columns = keyed_row_columns(keyed_rows_a)
+        b_columns = keyed_row_columns(keyed_rows_b)
+        assert not a_columns.intersection(b_columns), "Keyed rows to join may not share columns"
+        common_keys = set(keyed_rows_a.keys()).union(set(keyed_rows_b.keys()))
+        return {k: dict(**keyed_rows_a.get(k, {c: BLANK_CELL_VALUE for c in a_columns}),
+                        **keyed_rows_b.get(k, {c: BLANK_CELL_VALUE for c in b_columns}))
+                for k in common_keys}
+
+    def join_data_tables(new_table: str, tables_to_join: list, join_column: str):
+        keyed_rows = get_keyed_rows(tables_to_join[0], join_column)
+        for table_name in tables_to_join[1:]:
+            keyed_rows = join_keyed_rows(keyed_rows, get_keyed_rows(table_name, join_column))
+        upload_rows(new_table, [{join_column: k, **row} for k, row in keyed_rows.items()])
 
 ################################################ TESTS ################################################ noqa
 BLANK_CELL_VALUE = f"{uuid4()}"
