@@ -191,57 +191,17 @@ with callysto.Cell("markdown"):
     """
 
 with callysto.Cell("python"):
-    # This needs to be the subdirectory that's used in your bucket
-    subdirectory = "my-crams"
-    dfCramsCrais = create_cram_crai_table_pt(subdirectory)
+    listing = [key for key in gs.list_bucket("my-crams")]
+    create_cram_crai_table("my-table-name", listing)
 
 with callysto.Cell("markdown"):
     """
     Now, go check the data section of your workspace and you should a data table with the name you have given it, and that table should act as a directory of your files.
     
     If you set the name of your table to a table that already exists, the old table will not be overwritten, but the new table won't be created either. Terra tables cannot be updated, they must be deleted and remade.
-    
-    # Upload new table
-    Run the code below to upload your data table to Terra. Then, if you go to the data section of your workspace, you will see a brand new table containing your data. This table can be used as an input to a workflow.
-    """
-with callysto.Cell("python"):
-    dfCramsCrais.to_csv("dataframe.tsv", sep='\t')
-
-    # Format resulting TSV file to play nicely with Terra 
-    with open('dataframe.tsv', "r+") as file1:
-        header = file1.readline()
-        everything_else = file1.readlines()
-    full_header="entity:"+"cramsAndCrais"+"_id"+header
-    with open('final.tsv', "a") as file2:
-        file2.write(full_header)
-        for string in everything_else:
-            # Zfill the index
-            columns = string.split('\t')
-            columns[0] = columns[0].zfill(5)
-            file2.write('\t'.join(columns))
-        
-    # Upload
-    response = fapi.upload_entities_tsv(google_project, workspace, "final.tsv", "flexible")
-    fapi._check_response_code(response, 200)
-
-with callysto.Cell("markdown"):
-    """
     Note: If you get a FireCloudServerError that reads "Duplicated entities are not allowed in TSV", this may be because you ran the code more than once without deleting `final.tsv` first. If you don't delete that file before re-running the notebook, Firecloud will consider your second upload to be a duplicate and block it.
 
-    ## Inspect head of the dataframe
-    In addition to seeing the to being able to see the datatable in Terra directly, you can also get a peek at it here. As you can see, we had to do some manipulation, such as making the first row start with "entity" due to Terra's datatable limitations. If you adapt this code for your own purposes, your tables will need to follow the format of `entity:"+TABLE_NAME+"_id`, followed by tab seperating the rest of the columns, for their first line.
     """
-with callysto.Cell("python"):
-    get_ipython().system('head final.tsv')
-
-with callysto.Cell("markdown"):
-    """
-    ## Tidy up notebook workspace
-    """
-
-with callysto.Cell("python"):
-    get_ipython().system('rm dataframe.tsv')
-    get_ipython().system('rm final.tsv')
 
 with callysto.Cell("markdown"):
     """
