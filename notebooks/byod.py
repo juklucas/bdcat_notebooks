@@ -93,6 +93,14 @@ with callysto.Cell("python"):
             tsv_data += os.linesep + "\t".join([f"{i}", *[row[c] for c in columns]])
         upload_data_table(tsv_data)
 
+    def upload_columns(table: str, columns: Dict[str, List[Any]]):
+        column_headers = sorted(columns.keys())
+        number_of_rows = len(columns[set(columns.keys()).pop()])
+        tsv_data = "\t".join([f"{table}_id", *column_headers])
+        for i in range(number_of_rows):
+            tsv_data += os.linesep + "\t".join([f"{i}", *[columns[h][i] for h in column_headers]])
+        upload_data_table(tsv_data)
+
     def create_cram_crai_table(table: str, listing: Iterable[str]):
         crams = dict()
         crais = dict()
@@ -246,14 +254,6 @@ with callysto.Cell("markdown"):
     """
 
 with callysto.Cell("python"):
-    def upload_columns(table: str, columns: Dict[str, List[Any]]):
-        column_headers = sorted(columns.keys())
-        number_of_rows = len(columns[set(columns.keys()).pop()])
-        tsv_data = "\t".join([f"{table}_id", *column_headers])
-        for i in range(number_of_rows):
-            tsv_data += os.linesep + "\t".join([f"{i}", *[columns[h][i] for h in column_headers]])
-        upload_data_table(tsv_data)
-
     def iter_ents(table: str):
         resp = fiss.fapi.get_entities(google_project, workspace, table)
         resp.raise_for_status()
