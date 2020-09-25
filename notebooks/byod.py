@@ -119,9 +119,6 @@ with callysto.Cell("python"):
             else:
                 continue
         samples = sorted(crams.keys())
-        if len(crams) != len(crais):
-            #then the next line will throw a key error...
-            #how can we instead just skip it?
         upload_columns(table, dict(sample=samples,
                                    cram=[crams[s] for s in samples],
                                    crai=[crais[s] for s in samples]))
@@ -132,10 +129,12 @@ with callysto.Cell("markdown"):
 
     ## Install gsutil as directed by this [document](https://support.terra.bio/hc/en-us/articles/360024056512-Uploading-to-a-workspace-Google-bucket#h_01EGP8GR3G10SKRXAC7H1ENXQ3).
     Use the option "Set up gsutil on your local computer (step-by-step install)" which will allow you to upload files 
-    from your computer directly to Terra. But before you can upload, we'll need to do a few more steps.
+    from your computer directly to Terra. (Those familiar with Terra are aware that files can also be uploaded by
+    simply dragging them in to the "Files" section in the Data tab, but as `gsutil` can upload more than one file at
+    a time and has additional error handling, it is recommended to use it over dragging.) But before you can upload, 
+    we will need to perform a few quick tasks.
 
     ### Find the path to this workspace bucket
-
     Using the os package, you can print your workspace bucket path.
     """
 
@@ -146,16 +145,35 @@ with callysto.Cell("python"):
 with callysto.Cell("markdown"):
     """
     ### Add a prefix to your bucket path to organize your data
-    In this example, we add the prefix 'test-crai-cram'. In the terminal of your computer, you will call something like:
+    In this example, we add the prefix 'my-crams'. In the terminal of your computer, you will call something like:
 
     `gsutil cp /Users/my-cool-username/Documents/Example.cram gs://your_bucket_info/my-crams/`
 
-    We will be calling what comes after your bucket info, here represented as `my-crams`, as your sudirectory.
+    We will be calling what comes after your bucket info, here represented as `my-crams`, as your sudirectory. We'll be
+    using that subdirectory name later on, so let's make note of it here.
+
+    """
+with callysto.Cell("python"):
+    subdirectory = "my-crams"
+
+with callysto.Cell("markdown"):
+    """
+    #### A note on subdirectories
+    Subdirectories are not true directories. If all files in a subdirectory are deleted, it will cease to exist. That is
+    to say, Google Cloud does not have any equivalent to empty folders. If you would like to know more, [Google has
+    documentation on its filesystem's inner workings](https://cloud.google.com/storage/docs/gsutil/addlhelp/HowSubdirectoriesWork), 
+    but most users will not need to know the details.
+
+    ## Begin the upload
+    Now that you know what you will name your subdirectory, turn back to your computer's terminal and upload the data
+    using `gsutil cp`. Remember you may have to log into to your Google account before using gsutil into your
+    workspace bucket -- you can do so with `gcloud auth` as described in [Google's documentation](https://cloud.google.com/sdk/gcloud/reference/auth/login).
 
     ## Preview the data in your workspace bucket
-    Be aware that if you have uploaded multiple files, all of them will appear with this ls command. It will also 
-    contain one folder for every workflow you have run in this workspace. However, if you have imported data 
-    tables from Gen3, they will not show up here as the files within are only downloaded when their associated
+    Let's first look at the top of the workspace bucket. This will match what you see if you go the "data" tab of
+    your Terra workspace and click "Files" under the heading "OTHER DATA." There will be one directory per WDL workflow
+    that has executed. You will also see your subdirectory. However, if you have imported data 
+    tables from Gen3, they will not show up here, as the files within are only downloaded when their associated
     TSV tables are called upon by workflows or iPython notebooks.
     """
 
@@ -165,9 +183,20 @@ with callysto.Cell("python"):
 
 with callysto.Cell("markdown"):
     """
+    Now, let's take a peek inside the subdirectory, where you can see all of the files you uploaded from your local
+    machine.
+    """
+
+with callysto.Cell("python"):
+    #%gsutil ls {bucket}{subdirectory}
+    pass
+
+with callysto.Cell("markdown"):
+    """
     # Generate a data table that links to the data in your workspace bucket
 
-    To generate a Terra data table associating crams, crais, and sample ids (e.g. "NWD1"), use the snippet:
+    To generate a Terra data table associating crams, crais, and sample ids (e.g. "NWD1") from the data in your bucket, 
+    use the snippet:
     ```
     listing = [key for key in gs.list_bucket("my-crams")]
     create_cram_crai_table("my-table-name", listing)
@@ -192,15 +221,15 @@ with callysto.Cell("markdown"):
 
     However, the actual raw data generated will be more like this:
 
-    | entity:sample_id | cramLocation                                         | craiLocation                                |
-    | ---------        | ---------------------------------------------------  | ------------------------------------------- |
-    | NWD1             | gs://my-workspace-bucket/my-crams/NWD1.cram          | gs://my-workspace-bucket/my-crams/NWD1.crai |
-    | NWD2             | gs://my-workspace-bucket/my-crams/NWD2.cram          | gs://my-workspace-bucket/my-crams/NWD2.crai |
-    | NWD3             | gs://my-workspace-bucket/my-crams/NWD3.cram          | gs://my-workspace-bucket/my-crams/NWD3.crai |
+    | entity:sample_id | cramLocation                                  | craiLocation                                |
+    | ---------        | --------------------------------------------  | ------------------------------------------- |
+    | NWD1             | gs://my-workspace-bucket/my-crams/NWD1.cram   | gs://my-workspace-bucket/my-crams/NWD1.crai |
+    | NWD2             | gs://my-workspace-bucket/my-crams/NWD2.cram   | gs://my-workspace-bucket/my-crams/NWD2.crai |
+    | NWD3             | gs://my-workspace-bucket/my-crams/NWD3.cram   | gs://my-workspace-bucket/my-crams/NWD3.crai |
     """
 
 with callysto.Cell("python"):
-    listing = [key for key in gs.list_bucket("my-crams")]
+    listing = [key for key in gs.list_bucket(subdirectory)]
     create_cram_crai_table("my-table-name", listing)
 
 with callysto.Cell("markdown"):
