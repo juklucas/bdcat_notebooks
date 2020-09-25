@@ -9,9 +9,6 @@ os.environ['GOOGLE_PROJECT'] = "anvil-stage-demo"
 
 BLANK_CELL_VALUE = ""
 
-#!/usr/bin/env python
-# coding: utf-8
-
 with callysto.Cell("markdown"):
     """
     # Bring your own data to your Terra workspace and organize it in a data table
@@ -38,13 +35,13 @@ with callysto.Cell("markdown"):
     | NWD2      | NWD2.cram  | NWD2.crai |
 
     ## Assumptions
-    * You are not trying to overwrite a data table that already exists
-    * Your files follow a naming convention either like this...
-    NWD119844.CRAM
-    NWD119844.CRAM.CRAI
-    ...or this:
-    NWD119844.CRAM
-    NWD119844.CRAI
+    * You are not trying to overwrite a data table that already exists  
+    * Your files follow a naming convention either like this...  
+    NWD119844.CRAM  
+    NWD119844.CRAM.CRAI  
+    ...or this:  
+    NWD119844.CRAM  
+    NWD119844.CRAI  
 
     Files that lack the extension .cram or .crai will not be added to the data table.
 
@@ -54,8 +51,8 @@ with callysto.Cell("markdown"):
     """
 
 with callysto.Cell("python"):
-    #pip install --upgrade --no-cache-dir terra-notebook-utils
-    #pip install --upgrade --no-cache-dir gs-chunked-io
+    #%pip install --upgrade --no-cache-dir terra-notebook-utils
+    #%pip install --upgrade --no-cache-dir gs-chunked-io
     pass
 
 with callysto.Cell("markdown"):
@@ -122,6 +119,9 @@ with callysto.Cell("python"):
             else:
                 continue
         samples = sorted(crams.keys())
+        if len(crams) != len(crais):
+            #then the next line will throw a key error...
+            #how can we instead just skip it?
         upload_columns(table, dict(sample=samples,
                                    cram=[crams[s] for s in samples],
                                    crai=[crais[s] for s in samples]))
@@ -131,8 +131,8 @@ with callysto.Cell("markdown"):
     # Upload to your bucket with gsutil
 
     ## Install gsutil as directed by this [document](https://support.terra.bio/hc/en-us/articles/360024056512-Uploading-to-a-workspace-Google-bucket#h_01EGP8GR3G10SKRXAC7H1ENXQ3).
-    Use the option "Set up gsutil on your local computer (step-by-step install)" which will allow you to upload files from your computer directly to Terra. Using instructions from this document, you will use the gsutil tool to upload data from your local computer to your Terra workspace. To effectively use the example here, we suggest you upload the data with the suggestions
-    below.
+    Use the option "Set up gsutil on your local computer (step-by-step install)" which will allow you to upload files 
+    from your computer directly to Terra. But before you can upload, we'll need to do a few more steps.
 
     ### Find the path to this workspace bucket
 
@@ -153,11 +153,14 @@ with callysto.Cell("markdown"):
     We will be calling what comes after your bucket info, here represented as `my-crams`, as your sudirectory.
 
     ## Preview the data in your workspace bucket
-    Be aware that if you have uploaded multiple files, all of them will appear with this ls command. It will also contain one folder for every workflow you have run in this workspace. You may want to skip this step if you're after uploading hundreds of files. However, if you have imported data tables from Gen3, they will not show up here as the files within are only downloaded when their associated TSV tables are called upon by workflows or iPython notebooks.
+    Be aware that if you have uploaded multiple files, all of them will appear with this ls command. It will also 
+    contain one folder for every workflow you have run in this workspace. However, if you have imported data 
+    tables from Gen3, they will not show up here as the files within are only downloaded when their associated
+    TSV tables are called upon by workflows or iPython notebooks.
     """
 
 with callysto.Cell("python"):
-    #gsutil ls {bucket}
+    #%gsutil ls {bucket}
     pass
 
 with callysto.Cell("markdown"):
@@ -202,10 +205,8 @@ with callysto.Cell("python"):
 
 with callysto.Cell("markdown"):
     """
-    Now, go check the data section of your workspace and you should a data table with the name you have given it, and that table should act as a directory of your files.
-
-    If you set the name of your table to a table that already exists, the old table will not be overwritten, but the new table won't be created either. Terra tables cannot be updated, they must be deleted and remade.
-    Note: If you get a FireCloudServerError that reads "Duplicated entities are not allowed in TSV", this may be because you ran the code more than once without deleting `final.tsv` first. If you don't delete that file before re-running the notebook, Firecloud will consider your second upload to be a duplicate and block it.
+    Now, go check the data section of your workspace. You should see a data table with the name you have given it, 
+    and that table can now act as a directory of your files.
 
     """
 
