@@ -99,15 +99,7 @@ with callysto.Cell("python"):
         upload_data_table(tsv_data)
 
     def parse_cram_crai(filename: str):
-        sample, _ = filename.split(".", 1)                                                                    
-        if filename.endswith(".cram"): 
-            ext = "cram" 
-        elif filename.endswith(".crai") or filename.endswith(".cram.crai"):
-            ext = "crai" 
-        else:
-            # Metadata etc often takes the form of *.txt files so we'll ignore
-            # it rather than raising an exception
-            print(f"Unable to parse {filename} into sample and extension")
+        sample, ext = filename.str.rsplit(".", 1)
         return sample, ext
 
     def create_cram_crai_table(table: str, listing: Iterable[str]):
@@ -115,7 +107,7 @@ with callysto.Cell("python"):
         crais = dict()
         for key in listing:
             _, filename = key.rsplit("/", 1)
-            ext = parse_cram_crai(filename)
+            sample, ext = parse_cram_crai(filename)
             if "cram" == ext:
                 crams[sample] = key
             elif "crai" == ext:
@@ -124,10 +116,21 @@ with callysto.Cell("python"):
                 continue
         samples = sorted(crams.keys())
         if len(crams) != len(crais):
-            raise KeyError("Mismatch in number of cram and crai files.")
-        upload_columns(table, dict(sample=samples,
-                                   cram=[crams[s] for s in samples],
-                                   crai=[crais[s] for s in samples]))
+            # Finding intersections can take time, so we only do this if needed
+            common_samples = set(crams.keys()).intersection(set(crais.keys()))
+            unmatched_crams = set(crams.keys()).difference(set(crais.keys()))
+            unmatched_crais = set(crais.keys()).difference(set(crams.keys()))
+            if unmatched_crams:
+                warnings.warn("Crams missing crais for samples {unmatched_crams}")
+            if unmatched_crais:
+                warnings.warn("Crais missing crams for samples {unmatched_crais}")
+            upload_columns(table, dict(sample=common_samples,
+                                       cram=[crams[s] for s in common_samples],
+                                       crai=[crais[s] for s in common_samples]))
+        else:
+            upload_columns(table, dict(sample=samples,
+                                       cram=[crams[s] for s in samples],
+                                       crai=[crais[s] for s in samples]))
 
 with callysto.Cell("markdown"):
     """
