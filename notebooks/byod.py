@@ -98,20 +98,24 @@ with callysto.Cell("python"):
             tsv_data += os.linesep + "\t".join([f"{i}", *[columns[h][i] for h in column_headers]])
         upload_data_table(tsv_data)
 
+    def parse_cram_crai(filename: str):
+        sample, _ = filename.split(".", 1)                                                                    
+        if filename.endswith(".cram"): 
+            ext = "cram" 
+        elif filename.endswith(".crai") or filename.endswith(".cram.crai"):
+            ext = "crai" 
+        else:
+            # Metadata etc often takes the form of *.txt files so we'll ignore
+            # it rather than raising an exception
+            print(f"Unable to parse {filename} into sample and extension")
+        return sample, ext
+
     def create_cram_crai_table(table: str, listing: Iterable[str]):
         crams = dict()
         crais = dict()
         for key in listing:
             _, filename = key.rsplit("/", 1)
-
-            parts = filename.split(".")
-            if 3 == len(parts):  # foo.cram.crai branch
-                sample, _, ext = parts
-            elif 2 == len(parts):  # "foo.cram" or "foo.crai" branch
-                sample, ext = parts
-            else:
-                raise ValueError(f"Unable to parse '{filename}'")
-
+            ext = parse_cram_crai(filename)
             if "cram" == ext:
                 crams[sample] = key
             elif "crai" == ext:
@@ -119,6 +123,8 @@ with callysto.Cell("python"):
             else:
                 continue
         samples = sorted(crams.keys())
+        if len(crams) != len(crais):
+            raise KeyError("Mismatch in number of cram and crai files.")
         upload_columns(table, dict(sample=samples,
                                    cram=[crams[s] for s in samples],
                                    crai=[crais[s] for s in samples]))
@@ -186,7 +192,7 @@ with callysto.Cell("markdown"):
     """
 
 with callysto.Cell("python"):
-    fulldir = bucket+"/"+subdirectory
+    fulldir = bucket + "/" + subdirectory
     #!gsutil ls $fulldir
 
 with callysto.Cell("markdown"):
