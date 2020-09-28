@@ -119,11 +119,12 @@ with callysto.Cell("python"):
         if len(crams) != len(crais):
             # Finding intersections can take time, so we only do this if needed
             common_samples = set(crams.keys()).intersection(set(crais.keys()))
-            unmatched_crams = set(crams.keys()).difference(set(crais.keys()))
-            unmatched_crais = set(crais.keys()).difference(set(crams.keys()))
-            if unmatched_crams:
+            if len(crams) < len(crais):
+                unmatched_crams = set(crams.keys()).difference(set(crais.keys()))
                 warnings.warn("Crams missing crais for samples {unmatched_crams}")
-            if unmatched_crais:
+            else:
+                # ie, crams > crais
+                unmatched_crais = set(crais.keys()).difference(set(crams.keys()))
                 warnings.warn("Crais missing crams for samples {unmatched_crais}")
             upload_columns(table, dict(sample=common_samples,
                                        cram=[crams[s] for s in common_samples],
