@@ -99,7 +99,10 @@ with callysto.Cell("python"):
         upload_data_table(tsv_data)
 
     def parse_cram_crai(filename: str):
-        sample, ext = filename.str.rsplit(".", 1)
+        sample, ext = filename.rsplit(".", 1)
+        if sample.endswith("cram"):
+            # we want "foo.bar.cram.crai" and "foo.bar.cram" to match
+            sample, _ = sample.rsplit(".", 1)
         return sample, ext
 
     def create_cram_crai_table(table: str, listing: Iterable[str]):
@@ -112,8 +115,6 @@ with callysto.Cell("python"):
                 crams[sample] = key
             elif "crai" == ext:
                 crais[sample] = key
-            else:
-                continue
         samples = sorted(crams.keys())
         if len(crams) != len(crais):
             # Finding intersections can take time, so we only do this if needed
