@@ -35,13 +35,13 @@ with callysto.Cell("markdown"):
     | NWD2      | NWD2.cram  | NWD2.crai |
 
     ## Assumptions
-    * You are not trying to overwrite a data table that already exists  
-    * Your files follow a naming convention either like this...  
-    NWD119844.CRAM  
-    NWD119844.CRAM.CRAI  
-    ...or this:  
-    NWD119844.CRAM  
-    NWD119844.CRAI  
+    * You are not trying to overwrite a data table that already exists 
+    * Your files follow a naming convention either like this... <br/>
+    NWD119844.CRAM <br/>
+    NWD119844.CRAM.CRAI <br/>
+    ...or this: <br/>
+    NWD119844.CRAM <br/>
+    NWD119844.CRAI <br/>
 
     Files that lack the extension .cram or .crai will not be added to the data table.
 
@@ -68,6 +68,7 @@ with callysto.Cell("python"):
     from collections import defaultdict
     from typing import Any, List, Set, Dict, Iterable
     from terra_notebook_utils import gs
+    from collections import defaultdict
 
     google_project = os.environ['GOOGLE_PROJECT']
     workspace = os.environ['WORKSPACE_NAME']
@@ -100,39 +101,49 @@ with callysto.Cell("python"):
 
     def parse_cram_crai(filename: str):
         sample, ext = filename.rsplit(".", 1)
-        if sample.endswith("cram"):
-            # we want "foo.bar.cram.crai" and "foo.bar.cram" to match
+        if sample.endswith(".cram"):
+            # double extension in the crai file, ie "foo.cram.crai"
             sample, _ = sample.rsplit(".", 1)
         return sample, ext
 
     def create_cram_crai_table(table: str, listing: Iterable[str]):
-        crams = dict()
-        crais = dict()
+        matched_files = defaultdict(dict())
+        numCrams = 0
+        numCrais = 0
         for key in listing:
             _, filename = key.rsplit("/", 1)
             sample, ext = parse_cram_crai(filename)
-            if "cram" == ext:
-                crams[sample] = key
-            elif "crai" == ext:
-                crais[sample] = key
-        samples = sorted(crams.keys())
-        if len(crams) != len(crais):
-            # Finding intersections can take time, so we only do this if needed
-            common_samples = set(crams.keys()).intersection(set(crais.keys()))
-            if len(crams) < len(crais):
-                unmatched_crams = set(crams.keys()).difference(set(crais.keys()))
-                warnings.warn("Crams missing crais for samples {unmatched_crams}")
-            else:
-                # ie, crams > crais
-                unmatched_crais = set(crais.keys()).difference(set(crams.keys()))
-                warnings.warn("Crais missing crams for samples {unmatched_crais}")
-            upload_columns(table, dict(sample=common_samples,
-                                       cram=[crams[s] for s in common_samples],
-                                       crai=[crais[s] for s in common_samples]))
-        else:
-            upload_columns(table, dict(sample=samples,
-                                       cram=[crams[s] for s in samples],
-                                       crai=[crais[s] for s in samples]))
+            if ext in ['cram', 'crai']:
+                matched_files[sample][ext] = filename
+                if ext == 'cram':
+                    numCrams += 1
+                else:
+                    numCrais += 1
+
+        if numCrais != numCrams:
+            # We don't want to iterate an additional time if we don't need to,
+            # so this only runs if there's more crams than crais or vice versa
+            for matched_file in matched_files:
+                if matched_file.get('cram') and not matched_file.get('crai'):
+                    warnings.warn(f'{cram} is missing an index.')
+                    del matched_files[sample]
+                elif not matched_file.get('cram') and matched_file.get('crai'):
+                    warnings.warn(f'{crai} is missing a cram file.')
+                    del matched_files[sample]
+        
+        crams = []
+        crais = []
+        for sample in matched_files:
+            for ext in ('cram', 'crai'):
+                if ext == 'cram':
+                    crams.append(matched_files[sample][ext])
+                else:
+                    crais.append(matched_files[sample][ext])
+        
+        # Upload TSV
+        upload_columns(table, dict(sample=[samples[s] for s in matched_files],
+                cram=[crams[ext] for ext in ('cram', 'crai')],
+                crai=[crais[ext] for ext in ('cram', 'crai')]))
 
 with callysto.Cell("markdown"):
     """
