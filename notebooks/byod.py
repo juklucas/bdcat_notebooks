@@ -1,17 +1,18 @@
-# publish to: "terra-notebook-utils-tests" "test-byod"
+#publish to: "TEMP-byod-edits" "test-byod-local"
 import os
 import callysto
 
 # Mock the notebook environment
-os.environ['WORKSPACE_NAME'] = "terra-notebook-utils-tests"
-os.environ['WORKSPACE_BUCKET'] = "gs://fc-9169fcd1-92ce-4d60-9d2d-d19fd326ff10"
-os.environ['GOOGLE_PROJECT'] = "firecloud-cgl"
+os.environ['WORKSPACE_NAME'] = "TEMP-byod-edits"
+os.environ['WORKSPACE_BUCKET'] = "gs://fc-8e608b2e-016e-45e3-a254-4d00ad67eac0"
+os.environ['GOOGLE_PROJECT'] = "anvil-stage-demo"
 
 BLANK_CELL_VALUE = ""
 
 with callysto.Cell("markdown"):
     """
     # Bring your own data to your Terra workspace and organize it in a data table
+    *version: 2.0*
     """
 
 with callysto.Cell("markdown"):
@@ -32,13 +33,32 @@ with callysto.Cell("markdown"):
     | --------- | ---------  | --------- |
     | NWD1      | NWD1.cram  | NWD1.crai |
     | NWD2      | NWD2.cram  | NWD2.crai |
+
+    ## Assumptions
+    * You are not trying to overwrite a data table that already exists  
+    * Your files follow a naming convention either like this...  
+    NWD119844.CRAM  
+    NWD119844.CRAM.CRAI  
+    ...or this:  
+    NWD119844.CRAM  
+    NWD119844.CRAI  
+
+    Files that lack the extension .cram or .crai will not be added to the data table.
+
+    # Install requirements
+    Whenever `pip install`ing on a notebook on Terra, restart the kernal after the installation.
+
     """
 
 with callysto.Cell("python"):
-    #install necessary libraries
     #%pip install --upgrade --no-cache-dir terra-notebook-utils
     #%pip install --upgrade --no-cache-dir gs-chunked-io
     pass
+
+with callysto.Cell("markdown"):
+    """
+    Next come imports and environmental variables.
+    """
 
 with callysto.Cell("python"):
     import io
@@ -52,6 +72,12 @@ with callysto.Cell("python"):
     google_project = os.environ['GOOGLE_PROJECT']
     workspace = os.environ['WORKSPACE_NAME']
 
+with callysto.Cell("markdown"):
+    """
+    Finally, here are the functions we'll be using for creating data tables.
+    """
+
+with callysto.Cell("python"):
     def upload_data_table(tsv):
         resp = fiss.fapi.upload_entities(google_project, workspace, tsv, model="flexible")
         resp.raise_for_status()
@@ -72,6 +98,189 @@ with callysto.Cell("python"):
             tsv_data += os.linesep + "\t".join([f"{i}", *[columns[h][i] for h in column_headers]])
         upload_data_table(tsv_data)
 
+    def create_cram_crai_table(table: str, listing: Iterable[str]):
+        crams = dict()
+        crais = dict()
+        for key in listing:
+            _, filename = key.rsplit("/", 1)
+
+            parts = filename.split(".")
+            if 3 == len(parts):  # foo.cram.crai branch
+                sample, _, ext = parts
+            elif 2 == len(parts):  # "foo.cram" or "foo.crai" branch
+                sample, ext = parts
+            else:
+                raise ValueError(f"Unable to parse '{filename}'")
+
+            if "cram" == ext:
+                crams[sample] = key
+            elif "crai" == ext:
+                crais[sample] = key
+            else:
+                continue
+        samples = sorted(crams.keys())
+        upload_columns(table, dict(sample=samples,
+                                   cram=[crams[s] for s in samples],
+                                   crai=[crais[s] for s in samples]))
+
+with callysto.Cell("markdown"):
+    """
+    # Upload to your bucket with gsutil
+
+    ## Install gsutil as directed by this [document](https://support.terra.bio/hc/en-us/articles/360024056512-Uploading-to-a-workspace-Google-bucket#h_01EGP8GR3G10SKRXAC7H1ENXQ3).
+    Use the option "Set up gsutil on your local computer (step-by-step install)" which will allow you to upload files 
+    from your computer directly to Terra. (Those familiar with Terra are aware that files can also be uploaded by
+    simply dragging them in to the "Files" section in the Data tab, but as `gsutil` can upload more than one file at
+    a time and has additional error handling, it is recommended to use it over dragging.) But before you can upload, 
+    we will need to perform a few quick tasks.
+
+    ### Find the path to this workspace bucket
+    Using the os package, you can print your workspace bucket path.
+    """
+
+with callysto.Cell("python"):
+    bucket = os.environ["WORKSPACE_BUCKET"]
+    print(bucket)
+with callysto.Cell("markdown"):
+    """
+    ### Add a prefix to your bucket path to organize your data
+    In this example, we add the prefix 'my-crams'. In the terminal of your computer, you will call something like:
+
+    `gsutil cp /Users/my-cool-username/Documents/Example.cram gs://your_bucket_info/my-crams/`
+
+    We will be calling what comes after your bucket info, here represented as `my-crams`, as your sudirectory. We'll be
+    using that subdirectory name later on, so let's make note of it here.
+
+    """
+with callysto.Cell("python"):
+    subdirectory = "my-crams"
+with callysto.Cell("markdown"):
+    """
+    #### A note on subdirectories
+    Subdirectories are not true directories. If all files in a subdirectory are deleted, it will cease to exist. That is
+    to say, Google Cloud does not have any equivalent to empty folders. If you would like to know more, [Google has
+    documentation on its filesystem's inner workings](https://cloud.google.com/storage/docs/gsutil/addlhelp/HowSubdirectoriesWork), 
+    but most users will not need to know the details.
+
+    ## Begin the upload
+    Now that you know what you will name your subdirectory, turn back to your computer's terminal and upload the data
+    using `gsutil cp`. Remember you may have to log into to your Google account before using gsutil into your
+    workspace bucket -- you can do so with `gcloud auth` as described in [Google's documentation](https://cloud.google.com/sdk/gcloud/reference/auth/login).
+
+    ## Preview the data in your workspace bucket
+    Let's first look at the top of the workspace bucket. This will match what you see if you go the "data" tab of
+    your Terra workspace and click "Files" under the heading "OTHER DATA." There will be one directory per WDL workflow
+    that has executed. You will also see your subdirectory. However, if you have imported data 
+    tables from Gen3, they will not show up here, as the files within are only downloaded when their associated
+    TSV tables are called upon by workflows or iPython notebooks.
+    """
+
+with callysto.Cell("python"):
+    #%gsutil ls {bucket}
+    pass
+
+with callysto.Cell("markdown"):
+    """
+    Now, let's take a peek inside the subdirectory, where you can see all of the files you uploaded from your local
+    machine.
+    """
+
+with callysto.Cell("python"):
+    fulldir = bucket+"/"+subdirectory
+    #!gsutil ls $fulldir
+
+with callysto.Cell("markdown"):
+    """
+    # Generate a data table that links to the data in your workspace bucket
+
+    To generate a Terra data table associating crams, crais, and sample ids (e.g. "NWD1") from the data in your bucket, 
+    use the snippet:
+    ```
+    listing = [key for key in gs.list_bucket("my-crams")]
+    create_cram_crai_table("my-table-name", listing)
+    ```
+
+    For example, the listing
+    ```
+    gs://my-workspace-bucket/my-crams/NWD1.cram
+    gs://my-workspace-bucket/my-crams/NWD1.crai
+    gs://my-workspace-bucket/my-crams/NWD2.cram
+    gs://my-workspace-bucket/my-crams/NWD2.crai
+    gs://my-workspace-bucket/my-crams/NWD3.cram
+    gs://my-workspace-bucket/my-crams/NWD3.crai
+    ```
+    would produce a table that looks like this in Terra.
+
+    | sample_id | cramLocation       | craiLocation      |
+    | --------- | -----------------  | ----------------- |
+    | NWD1      | NWD1.cram          | NWD1.crai         |
+    | NWD2      | NWD2.cram          | NWD2.crai         |
+    | NWD3      | NWD3.cram          | NWD3.crai         |
+
+    However, the actual raw data generated will be more like this:
+
+    | entity:sample_id | cramLocation                                  | craiLocation                                |
+    | ---------        | --------------------------------------------  | ------------------------------------------- |
+    | NWD1             | gs://my-workspace-bucket/my-crams/NWD1.cram   | gs://my-workspace-bucket/my-crams/NWD1.crai |
+    | NWD2             | gs://my-workspace-bucket/my-crams/NWD2.cram   | gs://my-workspace-bucket/my-crams/NWD2.crai |
+    | NWD3             | gs://my-workspace-bucket/my-crams/NWD3.cram   | gs://my-workspace-bucket/my-crams/NWD3.crai |
+    """
+
+with callysto.Cell("python"):
+    listing = [key for key in gs.list_bucket(subdirectory)]
+    create_cram_crai_table("my-table-name", listing)
+with callysto.Cell("markdown"):
+    """
+    Now, go check the data section of your workspace. You should see a data table with the name you have given it, 
+    and that table can now act as a directory of your files.
+
+    """
+
+with callysto.Cell("markdown"):
+    """
+    # Merge data tables across sample ids
+
+    Data tables can be joined across any column of shared values. For instance, the following tables can be joined with
+    the `sample_id` column:
+
+    | sample_id | cram       | crai      |
+    | --------- | ---------  | --------- |
+    | NWD1      | NWD1.cram  | NWD1.crai |
+    | NWD2      | NWD2.cram  | NWD2.crai |
+    | NWD3      | NWD3.cram  | NWD3.crai |
+
+    | sample_id | first_name | last_name |
+    | --------- | ---------  | --------- |
+    | NWD1      | Bob        | Frank     |
+    | NWD2      | Sue        | Lee       |
+    | NWD3      | Adrian     | Zap       |
+
+    | sample_id | Diabetic   |
+    | --------- | ---------  |
+    | NWD1      | No         |
+    | NWD3      | Yes        |
+
+    The code snippet
+    ```
+    join_data_tables("joined_table_name", ["cram_crai_table", "name_table", "diabetic_table"], "sample_id")
+    ```
+    produces the combined table
+
+    | sample_id | cram       | crai      | first_name | last_name | Diabetic   |
+    | --------- | ---------  | --------- | ---------  | --------- | ---------  |
+    | NWD1      | NWD1.cram  | NWD1.crai | Bob        | Frank     | No         |
+    | NWD3      | NWD3.cram  | NWD3.crai | Adrian     | Zap       | Yes        |
+
+    Note that the row for `NWD2` is missing from the combined table since it was not present in `diabetic_table`.
+    """
+
+with callysto.Cell("markdown"):
+    """
+    # Additional functions
+    To aid in the creation of your own data tables, we have provided some more functions for you to use and adapt.
+    """
+
+with callysto.Cell("python"):
     def iter_ents(table: str):
         resp = fiss.fapi.get_entities(google_project, workspace, table)
         resp.raise_for_status()
@@ -125,142 +334,6 @@ with callysto.Cell("python"):
         for table_name in tables_to_join[1:]:
             keyed_rows = join_keyed_rows(keyed_rows, get_keyed_rows(table_name, join_column))
         upload_rows(new_table, [{join_column: k, **row} for k, row in keyed_rows.items()])
-
-    def create_cram_crai_table(table: str, listing: Iterable[str]):
-        crams = dict()
-        crais = dict()
-        for key in listing:
-            _, filename = key.rsplit("/", 1)
-
-            parts = filename.split(".")
-            if 3 == len(parts):  # foo.cram.crai branch
-                sample, _, ext = parts
-            elif 2 == len(parts):  # "foo.cram" or "foo.crai" branch
-                sample, ext = parts
-            else:
-                raise ValueError(f"Unable to parse '{filename}'")
-
-            if "cram" == ext:
-                crams[sample] = key
-            elif "crai" == ext:
-                crais[sample] = key
-            else:
-                continue
-        samples = sorted(crams.keys())
-        upload_columns(table, dict(sample=samples,
-                                   cram=[crams[s] for s in samples],
-                                   crai=[crais[s] for s in samples]))
-
-with callysto.Cell("markdown"):
-    """
-    ## Install gsutil on your local computer using option 2 instructions in this [document](https://support.terra.bio/hc/en-us/articles/360024056512-Uploading-to-a-workspace-Google-bucket).
-    """
-
-with callysto.Cell("markdown"):
-    """
-    ## Organize your upload to Terra
-    Using instructions from the document above, you will use the gsutil tool to upload data from your local computer to
-    your Terra workspace. To effectively use the example here, we suggest you upload the data with the suggestions
-    below.
-    """
-
-with callysto.Cell("markdown"):
-    """
-    ### Find the path to this workspace bucket
-    """
-
-with callysto.Cell("markdown"):
-    """
-    Using the os package, you can print your workspace bucket path.
-    """
-
-with callysto.Cell("python"):
-    bucket = os.environ["WORKSPACE_BUCKET"]
-    print(bucket)
-
-with callysto.Cell("markdown"):
-    """
-    ### Add a prefix to your bucket path to organize your data
-    In this example, we add the prefix 'test-crai-cram'. In the terminal of your computer, you will call something like:
-
-    `gsutil cp /Users/Documents/Example.cram gs://your_bucket_info/test-crai-cram/`
-    """
-
-with callysto.Cell("markdown"):
-    """
-    ## Preview the data in your workspace bucket
-    """
-
-with callysto.Cell("python"):
-    #!gsutil ls {bucket}
-    pass
-
-with callysto.Cell("markdown"):
-    """
-    # Generate a data table that links to the data in your workspace bucket
-
-    To generate a Terra data table associating crams, crais, and sample ids (e.g. "NWD1"), use the snippet:
-    ```
-    listing = [key for key in gs.list_bucket("my-crams")]
-    create_cram_crai_table("my-table-name", listing)
-    ```
-
-    For example, the listing
-    ```
-    gs://my-workspace-bucket/my-crams/NWD1.cram
-    gs://my-workspace-bucket/my-crams/NWD1.crai
-    gs://my-workspace-bucket/my-crams/NWD2.cram
-    gs://my-workspace-bucket/my-crams/NWD2.crai
-    gs://my-workspace-bucket/my-crams/NWD3.cram
-    gs://my-workspace-bucket/my-crams/NWD3.crai
-    ```
-    would produce the table
-
-    | sample_id | cram       | crai      |
-    | --------- | ---------  | --------- |
-    | NWD1      | NWD1.cram  | NWD1.crai |
-    | NWD2      | NWD2.cram  | NWD2.crai |
-    | NWD3      | NWD3.cram  | NWD3.crai |
-    """
-
-with callysto.Cell("markdown"):
-    """
-    # Merge data tables across sample ids
-
-    Data tables can be joined across any column of shared values. For instance, the following tables can be joined with
-    the `sample_id` column:
-
-    | sample_id | cram       | crai      |
-    | --------- | ---------  | --------- |
-    | NWD1      | NWD1.cram  | NWD1.crai |
-    | NWD2      | NWD2.cram  | NWD2.crai |
-    | NWD3      | NWD3.cram  | NWD3.crai |
-
-    | sample_id | first_name | last_name |
-    | --------- | ---------  | --------- |
-    | NWD1      | Bob        | Frank     |
-    | NWD2      | Sue        | Lee       |
-    | NWD3      | Adrian     | Zap       |
-
-    | sample_id | Diabetic   |
-    | --------- | ---------  |
-    | NWD1      | No         |
-    | NWD3      | Yes        |
-
-    The code snippet
-    ```
-    join_data_tables("joined_table_name", ["cram_crai_table", "name_table", "diabetic_table"], "sample_id")
-    ```
-    produces the combined table
-
-    | sample_id | cram       | crai      | first_name | last_name | Diabetic   |
-    | --------- | ---------  | --------- | ---------  | --------- | ---------  |
-    | NWD1      | NWD1.cram  | NWD1.crai | Bob        | Frank     | No         |
-    | NWD3      | NWD3.cram  | NWD3.crai | Adrian     | Zap       | Yes        |
-
-    Note that the row for `NWD2` is missing from the combined table since it was not present in `diabetic_table`.
-
-    """
 
 ################################################ TESTS ################################################ noqa
 BLANK_CELL_VALUE = f"{uuid4()}"
