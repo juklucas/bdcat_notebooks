@@ -42,8 +42,6 @@ with callysto.Cell("markdown"):
     ...or this: <br/>
     NWD119844.CRAM <br/>
     NWD119844.CRAI <br/>
-    * Your files do not contain extra instances of "cram" or "crai" in their name </br>
-    ie, not "1.cram.cram.cram.crai.crai.cram.crai.cram.cram.cram.crai"
 
     Files that lack the extension .cram or .crai will not be added to the data table.
 
@@ -101,10 +99,12 @@ with callysto.Cell("python"):
         upload_data_table(tsv_data)
 
     def parse_cram_crai(filename: str):
-        sample, ext = filename.rsplit(".", 1)
-        if sample.endswith(".cram"):
+        if filename.endswith(".cram.crai"):
             # double extension in the crai file, ie "foo.cram.crai"
-            sample, _ = sample.rsplit(".", 1)
+            sample = filename[:-10]
+        else:
+            sample = filename[:-5]
+        ext = filename[-4:]
         return sample, ext
 
     def create_cram_crai_table(table: str, listing: Iterable[str]):
