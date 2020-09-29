@@ -42,6 +42,8 @@ with callysto.Cell("markdown"):
     ...or this: <br/>
     NWD119844.CRAM <br/>
     NWD119844.CRAI <br/>
+    * Your files do not contain extra instances of "cram" or "crai" in their name </br>
+    ie, not "1.cram.cram.cram.crai.crai.cram.crai.cram.cram.cram.crai"
 
     Files that lack the extension .cram or .crai will not be added to the data table.
 
