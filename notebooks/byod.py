@@ -35,7 +35,7 @@ with callysto.Cell("markdown"):
     | NWD2      | NWD2.cram  | NWD2.crai |
 
     ## Assumptions
-    * You are not trying to overwrite a data table that already exists 
+    * You are not trying to overwrite a data table that already exists <br/>
     * Your files follow a naming convention either like this... <br/>
     NWD119844.CRAM <br/>
     NWD119844.CRAM.CRAI <br/>
@@ -68,7 +68,6 @@ with callysto.Cell("python"):
     from collections import defaultdict
     from typing import Any, List, Set, Dict, Iterable
     from terra_notebook_utils import gs
-    from collections import defaultdict
 
     google_project = os.environ['GOOGLE_PROJECT']
     workspace = os.environ['WORKSPACE_NAME']
@@ -107,53 +106,57 @@ with callysto.Cell("python"):
         return sample, ext
 
     def create_cram_crai_table(table: str, listing: Iterable[str]):
-        matched_files = defaultdict(dict())
-        numCrams = 0
-        numCrais = 0
+        matched_files = defaultdict(dict)  # type: dict
+        allCrams = []
+        allCrais = []
         for key in listing:
             _, filename = key.rsplit("/", 1)
             sample, ext = parse_cram_crai(filename)
             if ext in ['cram', 'crai']:
                 matched_files[sample][ext] = filename
                 if ext == 'cram':
-                    numCrams += 1
+                    allCrams.append(sample)
                 else:
-                    numCrais += 1
+                    allCrais.append(sample)
 
-        if numCrais != numCrams:
+        if allCrams != allCrais:
             # We don't want to iterate an additional time if we don't need to,
             # so this only runs if there's more crams than crais or vice versa
-            for matched_file in matched_files:
-                if matched_file.get('cram') and not matched_file.get('crai'):
-                    warnings.warn(f'{cram} is missing an index.')
+            for sample in list(matched_files):
+                try:
+                    if matched_files[sample]['cram'] and not matched_files[sample]['crai']:
+                        if not matched_files[sample]['cram'] and matched_files[sample]['crai']:
+                            continue
+                except KeyError:
+                    print(f'{sample} is missing an index or cram file')
                     del matched_files[sample]
-                elif not matched_file.get('cram') and matched_file.get('crai'):
-                    warnings.warn(f'{crai} is missing a cram file.')
-                    del matched_files[sample]
-        
+
         crams = []
         crais = []
+        samples = []
         for sample in matched_files:
+            samples.append(sample)
             for ext in ('cram', 'crai'):
                 if ext == 'cram':
-                    crams.append(matched_files[sample][ext])
+                    crams.append(f"gs://{bucket}/{subdirectory}/{matched_files[sample][ext]}")
                 else:
-                    crais.append(matched_files[sample][ext])
-        
+                    crais.append(f"gs://{bucket}/{subdirectory}/{matched_files[sample][ext]}")
+
         # Upload TSV
-        upload_columns(table, dict(sample=[samples[s] for s in matched_files],
-                cram=[crams[ext] for ext in ('cram', 'crai')],
-                crai=[crais[ext] for ext in ('cram', 'crai')]))
+        upload_columns(table, dict(
+            sample=samples,
+            cram=crams,
+            crai=crais))
 
 with callysto.Cell("markdown"):
     """
     # Upload to your bucket with gsutil
 
     ## Install gsutil as directed by this [document](https://support.terra.bio/hc/en-us/articles/360024056512-Uploading-to-a-workspace-Google-bucket#h_01EGP8GR3G10SKRXAC7H1ENXQ3).
-    Use the option "Set up gsutil on your local computer (step-by-step install)" which will allow you to upload files 
+    Use the option "Set up gsutil on your local computer (step-by-step install)" which will allow you to upload files
     from your computer directly to Terra. (Those familiar with Terra are aware that files can also be uploaded by
     simply dragging them in to the "Files" section in the Data tab, but as `gsutil` can upload more than one file at
-    a time and has additional error handling, it is recommended to use it over dragging.) But before you can upload, 
+    a time and has additional error handling, it is recommended to use it over dragging.) But before you can upload,
     we will need to perform a few quick tasks.
 
     ### Find the path to this workspace bucket
@@ -181,7 +184,7 @@ with callysto.Cell("markdown"):
     #### A note on subdirectories
     Subdirectories are not true directories. If all files in a subdirectory are deleted, it will cease to exist. That is
     to say, Google Cloud does not have any equivalent to empty folders. If you would like to know more, [Google has
-    documentation on its filesystem's inner workings](https://cloud.google.com/storage/docs/gsutil/addlhelp/HowSubdirectoriesWork), 
+    documentation on its filesystem's inner workings](https://cloud.google.com/storage/docs/gsutil/addlhelp/HowSubdirectoriesWork),
     but most users will not need to know the details.
 
     ## Begin the upload
@@ -192,7 +195,7 @@ with callysto.Cell("markdown"):
     ## Preview the data in your workspace bucket
     Let's first look at the top of the workspace bucket. This will match what you see if you go the "data" tab of
     your Terra workspace and click "Files" under the heading "OTHER DATA." There will be one directory per WDL workflow
-    that has executed. You will also see your subdirectory. However, if you have imported data 
+    that has executed. You will also see your subdirectory. However, if you have imported data
     tables from Gen3, they will not show up here, as the files within are only downloaded when their associated
     TSV tables are called upon by workflows or iPython notebooks.
     """
@@ -215,7 +218,7 @@ with callysto.Cell("markdown"):
     """
     # Generate a data table that links to the data in your workspace bucket
 
-    To generate a Terra data table associating crams, crais, and sample ids (e.g. "NWD1") from the data in your bucket, 
+    To generate a Terra data table associating crams, crais, and sample ids (e.g. "NWD1") from the data in your bucket,
     use the snippet:
     ```
     listing = [key for key in gs.list_bucket("my-crams")]
@@ -253,7 +256,7 @@ with callysto.Cell("python"):
     create_cram_crai_table("my-table-name", listing)
 with callysto.Cell("markdown"):
     """
-    Now, go check the data section of your workspace. You should see a data table with the name you have given it, 
+    Now, go check the data section of your workspace. You should see a data table with the name you have given it,
     and that table can now act as a directory of your files.
 
     """
