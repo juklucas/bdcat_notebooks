@@ -34,16 +34,13 @@ with callysto.Cell("markdown"):
     | NWD1      | NWD1.cram  | NWD1.crai |
     | NWD2      | NWD2.cram  | NWD2.crai |
 
-    ## Assumptions
-    * You are not trying to overwrite a data table that already exists  
-    * Your files follow a naming convention either like this...  
-    NWD119844.CRAM  
-    NWD119844.CRAM.CRAI  
-    ...or this:  
-    NWD119844.CRAM  
-    NWD119844.CRAI  
-
-    Files that lack the extension .cram or .crai will not be added to the data table.
+    ## Naming conventions
+    Your files can follow a naming convention like this...
+    NWD119844.CRAM <br/>
+    NWD119844.CRAM.CRAI <br/>
+    ...or this: <br/>
+    NWD119844.CRAM <br/>
+    NWD119844.CRAI <br/>
 
     # Install requirements
     Whenever `pip install`ing on a notebook on Terra, restart the kernal after the installation.
@@ -57,24 +54,34 @@ with callysto.Cell("python"):
 
 with callysto.Cell("markdown"):
     """
-    Next come imports and environmental variables.
+    Next come imports and environmental variables. You can learn more about Terra Notebook Utils at [its
+    respective repository](https://github.com/DataBiosphere/terra-notebook-utils). Firecloud's
+    documentation can be found on [its Pypi page](https://pypi.org/project/firecloud/).
+
+    `os.environ['GOOGLE_PROJECT']` refers to your billing project. Your notebook will inherit the
+    billing project used by your workspace. `os.environ['WORKSPACE_NAME']` on the other hand returns
+    the name of the workspace itself.
     """
 
 with callysto.Cell("python"):
     import io
     import os
     from uuid import uuid4
-    from firecloud import fiss
     from collections import defaultdict
     from typing import Any, List, Set, Dict, Iterable
+    # Terra-specific packages
     from terra_notebook_utils import gs
+    from firecloud import fiss
 
     google_project = os.environ['GOOGLE_PROJECT']
     workspace = os.environ['WORKSPACE_NAME']
 
 with callysto.Cell("markdown"):
     """
-    Finally, here are the functions we'll be using for creating data tables.
+    Below, are the functions we'll be using for creating data tables. We'll be using them for a specific
+    use case -- the creation of a table containing CRAMs and their respective CRAI files. You can also use
+    and edit these functions, as well as the additional ones at the end of this notebook, for different
+    use cases.
     """
 
 with callysto.Cell("python"):
@@ -129,13 +136,15 @@ with callysto.Cell("markdown"):
 
     ## Install gsutil as directed by this [document](https://support.terra.bio/hc/en-us/articles/360024056512-Uploading-to-a-workspace-Google-bucket#h_01EGP8GR3G10SKRXAC7H1ENXQ3).
     Use the option "Set up gsutil on your local computer (step-by-step install)" which will allow you to upload files 
-    from your computer directly to Terra. (Those familiar with Terra are aware that files can also be uploaded by
-    simply dragging them in to the "Files" section in the Data tab, but as `gsutil` can upload more than one file at
-    a time and has additional error handling, it is recommended to use it over dragging.) But before you can upload, 
-    we will need to perform a few quick tasks.
+    from your computer directly to Terra. Files can also be uploaded one-at-a-time by dragging them in to the "Files"
+    section in the Data tab, but as `gsutil` can upload more than one file at once and has additional error handling,
+    it is recommended to use it over dragging. But before you can upload, we will need to perform a few quick tasks.
 
     ### Find the path to this workspace bucket
-    Using the os package, you can print your workspace bucket path.
+    Using the os package, you can print your workspace bucket path. This is distinct from the `os.environ['GOOGLE_PROJECT']`
+    we called earlier, as that one returns the billing project, and `os.environ['WORKSPACE_NAME']`, which returns the name
+    of the workspace. `os.environ["WORKSPACE_BUCKET"]` returns the URI of the bucket itself in gs:// form. It is this
+    address that is needed to upload files.
     """
 
 with callysto.Cell("python"):
@@ -144,35 +153,36 @@ with callysto.Cell("python"):
 with callysto.Cell("markdown"):
     """
     ### Add a prefix to your bucket path to organize your data
-    In this example, we add the prefix 'my-crams'. In the terminal of your computer, you will call something like:
-
-    `gsutil cp /Users/my-cool-username/Documents/Example.cram gs://your_bucket_info/my-crams/`
-
-    We will be calling what comes after your bucket info, here represented as `my-crams`, as your sudirectory. We'll be
-    using that subdirectory name later on, so let's make note of it here.
+    In this example, we add the prefix 'my-crams'. In doing this we say that we want our files to exist at the address
+    gs://[your_bucket_info]/my-crams/`, which will help keep our data organized. We will be calling what comes after
+    your bucket info, here represented as `my-crams`, as your sudirectory. We'll be using that subdirectory name
+    later on, so let's make note of it here.
 
     """
 with callysto.Cell("python"):
     subdirectory = "my-crams"
 with callysto.Cell("markdown"):
     """
-    #### A note on subdirectories
-    Subdirectories are not true directories. If all files in a subdirectory are deleted, it will cease to exist. That is
-    to say, Google Cloud does not have any equivalent to empty folders. If you would like to know more, [Google has
-    documentation on its filesystem's inner workings](https://cloud.google.com/storage/docs/gsutil/addlhelp/HowSubdirectoriesWork), 
+    #### A technical note on subdirectories in Google Cloud
+    In Google Cloud, any directories below the top-level gs:// address of the bucket are not "true" directories.
+    If one's bucket contained gs://bucket/my-files/file1.txt, and file1.txt was deleted, there would be no
+    trace of my-files. That is to say, Google Cloud does not have any equivalent to empty folders.
+    If you would like to know more, [Google has documentation on its filesystem's inner workings](https://cloud.google.com/storage/docs/gsutil/addlhelp/HowSubdirectoriesWork), 
     but most users will not need to know the details.
 
     ## Begin the upload
-    Now that you know what you will name your subdirectory, turn back to your computer's terminal and upload the data
-    using `gsutil cp`. Remember you may have to log into to your Google account before using gsutil into your
-    workspace bucket -- you can do so with `gcloud auth` as described in [Google's documentation](https://cloud.google.com/sdk/gcloud/reference/auth/login).
+    Now that you know what you will name your subdirectory, turn back to your computer's terminal -- it's time to 
+    upload your data. You will likely have to login to your upload to your workspace bucket if you have not done
+    so already. You can do so with `gcloud auth` as described in [Google's documentation](https://cloud.google.com/sdk/gcloud/reference/auth/login).
+    The syntax you will be using will look like this:
 
+    `gsutil cp /Users/my-cool-username/Documents/Example.cram gs://your_bucket_info/my-crams/`
+    
     ## Preview the data in your workspace bucket
     Let's first look at the top of the workspace bucket. This will match what you see if you go the "data" tab of
-    your Terra workspace and click "Files" under the heading "OTHER DATA." There will be one directory per WDL workflow
-    that has executed. You will also see your subdirectory. However, if you have imported data 
-    tables from Gen3, they will not show up here, as the files within are only downloaded when their associated
-    TSV tables are called upon by workflows or iPython notebooks.
+    your Terra workspace and click "Files" under the heading "OTHER DATA." All data you have uploaded or generated in
+    your workspace will be here. You will also see your subdirectory.
+    
     """
 
 with callysto.Cell("python"):
