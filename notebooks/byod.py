@@ -126,11 +126,17 @@ with callysto.Cell("python"):
             # so this only runs if there's more crams than crais or vice versa
             for sample in list(matched_files):
                 try:
-                    if matched_files[sample]['cram'] and not matched_files[sample]['crai']:
-                        if not matched_files[sample]['cram'] and matched_files[sample]['crai']:
-                            continue
+                    if not matched_files[sample]['cram']:
+                        continue
                 except KeyError:
-                    print(f'{sample} is missing an index or cram file')
+                    print(f'{sample} is missing a cram file and will be removed')
+                    del matched_files[sample]
+                    break
+                try:
+                    if not matched_files[sample]['crai']:
+                        continue
+                except KeyError:
+                    print(f'{sample} is missing a crai file and will be removed')
                     del matched_files[sample]
 
         crams = []
